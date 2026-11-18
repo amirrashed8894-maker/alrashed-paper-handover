@@ -216,19 +216,19 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.c){S.c[t.dataset.c]=t.checked;changed()}
-  if(t.dataset.ph&&t.files[0]){shrink(t.files[0]).then(d=>{S.ph[t.dataset.ph]=d;renderPh();changed()});t.value=''}
+  if(t.dataset.ph&&t.files[0]){shrink(t.files[0]).then(d=>{S.ph[t.dataset.ph]=d;phPut(t.dataset.ph,d);renderPh();changed()});t.value=''}
 });
 $('#prod').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;S.prod=c.dataset.v;changed()});
 
 function shrink(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
-  const m=1100,sc=Math.min(1,m/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=im.width*sc;c.height=im.height*sc;
+  const m=1000,sc=Math.min(1,m/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=im.width*sc;c.height=im.height*sc;
   c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.62))};im.src=r.result};r.readAsDataURL(file)})}
 function renderPh(){
   document.querySelectorAll('.slot').forEach(sl=>{const k=sl.id.slice(5);const d=S.ph[k];
     sl.classList.toggle('has',!!d);
     sl.querySelector('.pv').innerHTML=d?`<img src="${d}"><button class="x" type="button" onclick="event.preventDefault();delPh('${k}')">×</button>`:''});
 }
-function delPh(k){delete S.ph[k];renderPh();changed()}
+function delPh(k){delete S.ph[k];phPut(k,null);renderPh();changed()}
 
 // ---------- signature ----------
 let sctx,drawing=false;
@@ -240,10 +240,11 @@ function initSig(){
   const pos=e=>{const r=c.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
   c.addEventListener('pointerdown',e=>{drawing=true;c.setPointerCapture(e.pointerId);const[x,y]=pos(e);sctx.beginPath();sctx.moveTo(x,y)});
   c.addEventListener('pointermove',e=>{if(!drawing)return;const[x,y]=pos(e);sctx.lineTo(x,y);sctx.stroke()});
-  const end=()=>{if(!drawing)return;drawing=false;S.sig=c.toDataURL('image/png');changed()};
+  const end=()=>{if(!drawing)return;drawing=false;S.sig=c.toDataURL('image/png');phPut('__sig',S.sig);changed()};
   c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
 }
-function clearSig(){const c=$('#sig');sctx.clearRect(0,0,c.width,c.height);S.sig='';changed()}
+function drawSig(){const c=$('#sig');if(!c||!sctx||!S.sig)return;const r=c.getBoundingClientRect();const im=new Image();im.onload=()=>sctx.drawImage(im,0,0,r.width,r.height);im.src=S.sig}
+function clearSig(){const c=$('#sig');sctx.clearRect(0,0,c.width,c.height);S.sig='';phPut('__sig',null);changed()}
 
 // ---------- logic ----------
 function pallets(){return (S.f.palList||'').split(/[\n,،]+/).map(x=>x.trim()).filter(Boolean)}
@@ -291,19 +292,24 @@ function changed(){
 
 // ---------- storage ----------
 const KEY='alr_loading_cur',HK='alr_loading_hist';
-function save(){
-  const n=$('#saveNote');
-  try{localStorage.setItem(KEY,JSON.stringify(S));n.style.display='none'}
-  catch(e){try{localStorage.setItem(KEY,JSON.stringify({...S,ph:{},sig:''}));}catch(_){}
-    n.style.display='block';n.textContent='تنبيه: الصور محفوظة مؤقتًا فقط — لا تقفل الصفحة قبل إصدار التقرير.'}
-}
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(d)S=Object.assign(blank(),d)}catch(e){}}
+// الصور والتوقيع في IndexedDB (مساحة كبيرة) — والبيانات النصية في localStorage
+let DB=null,IDB_OK=true;
+function idb(){if(DB)return Promise.resolve(DB);return new Promise((ok,no)=>{try{const r=indexedDB.open('alr_loading',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('ph');r.onsuccess=()=>{DB=r.result;ok(DB)};r.onerror=()=>no(r.error)}catch(e){no(e)}})}
+async function phPut(k,v){try{const db=await idb();await new Promise((ok,no)=>{const t=db.transaction('ph','readwrite');v?t.objectStore('ph').put(v,S.id+':'+k):t.objectStore('ph').delete(S.id+':'+k);t.oncomplete=ok;t.onerror=()=>no(t.error)});IDB_OK=true}catch(e){IDB_OK=false}note()}
+async function phLoadAll(id){try{const db=await idb();return await new Promise((ok,no)=>{const out={};const t=db.transaction('ph','readonly');const c=t.objectStore('ph').openCursor(IDBKeyRange.bound(id+':',id+':\uffff'));
+  c.onsuccess=()=>{const r=c.result;if(r){out[r.key.slice(String(id).length+1)]=r.value;r.continue()}else ok(out)};c.onerror=()=>no(c.error)})}catch(e){IDB_OK=false;return {}}}
+async function phClear(id){try{const db=await idb();const t=db.transaction('ph','readwrite');t.objectStore('ph').delete(IDBKeyRange.bound(id+':',id+':\uffff'))}catch(e){}}
+function note(){const n=$('#saveNote');if(!n)return;n.style.display=IDB_OK?'none':'block';n.textContent='تنبيه: الجهاز مش بيحفظ الصور — ما تقفلش الصفحة قبل «إصدار التقرير» وحفظ الـ PDF. (افتح اللينك في كروم أو سفاري مش جوه تطبيق تاني)'}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({...S,ph:{},sig:''}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(d)S=Object.assign(blank(),d,{ph:{},sig:''})}catch(e){}}
+async function loadMedia(){const m=await phLoadAll(S.id);S.sig=m.__sig||'';delete m.__sig;S.ph=m;renderPh();drawSig();changed();note()}
 function fill(){
   document.querySelectorAll('[data-k]').forEach(el=>{el.value=S.f[el.dataset.k]??''});
   document.querySelectorAll('[data-c]').forEach(el=>{el.checked=!!S.c[el.dataset.c]});
   renderPh();
 }
-async function newCont(){if(!await ask('بدء حاوية جديدة؟ البيانات الحالية هتتمسح من الشاشة.'))return;S=blank();build();fill();changed();scrollTo(0,0)}
+async function newCont(){if(!await ask('بدء حاوية جديدة؟ البيانات الحالية هتتمسح من الشاشة.'))return;phClear(S.id);S=blank();build();fill();changed();scrollTo(0,0)}
 function hist(){try{return JSON.parse(localStorage.getItem(HK)||'[]')}catch(e){return[]}}
 function showHist(){const h=hist();$('#hist').innerHTML=h.length?h.slice().reverse().map(x=>`<div class="it"><span class="ltr">${esc(x.cont)}</span><span>${esc(x.prod)}</span><span>${esc(x.date)}</span><span>${x.pal} بالتة</span></div>`).join(''):'<div class="msg warn">لا توجد حاويات سابقة على هذا الجهاز.</div>'}
 
@@ -408,6 +414,6 @@ async function savePdf(){
 
 function closeRep(){$('#rep').style.display='none';$('#app').style.display='block';document.title='شيك ليست التحميل'}
 
-load();build();fill();changed();
+load();build();fill();changed();loadMedia();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 </script>
 </body></html>
