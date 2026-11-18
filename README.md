@@ -9,3 +9,7 @@ Static site on Render (`alrashed-paper-handover.onrender.com`).
 - Never deletes: receipts can only be archived/unarchived.
 - Login: shared Alola gate (`auth-gate.js`, app id `handover`), same accounts as the receiving app; «دخول أمير» on paired devices.
 - Branding: set `brand` in `config.js` (`alrashed` or `alola`).
+
+## شيك ليست التحميل (`/loading/`)
+
+صفحة مستقلة (`loading/index.html`، ملف واحد بدون اعتماديات) لتحميل حاويات المبرد — فراولة مجمدة وموالح: 10 خطوات بالصور وتوقيع السائق، والتقرير على ورقة الراشد (حفظ PDF من الطباعة). مستثناة من الـ service worker بتاع تسليم الورق.
