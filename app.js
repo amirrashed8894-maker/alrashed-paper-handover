@@ -1,4 +1,4 @@
-/* تسليم أصول ورق — v1.0.0
+/* تسليم أصول ورق — v1.1.0 (PDF: معاينة جوه البرنامج + إرسال واتساب مباشر بدون تنزيل تلقائي)
    كل حاجة بتتحفظ فورًا على الجهاز (IndexedDB: ho_db → rec + blob، ونسخة من المسودة في localStorage)،
    وبعد الحفظ بتترفع للسحابة (Supabase عبر paper-handover). مفيش مسح نهائي: أرشفة بس. */
 'use strict';
@@ -347,7 +347,7 @@ async function showRecord(id) {
   app().innerHTML = `<div class="card"><h2 style="margin-bottom:2px">إيصال ${esc(r.serial)}</h2><div class="hint">${esc(fDT(r.savedAt))}${r.serialOffline ? ' · رقم اتعمل أوفلاين' : ''}${r.archived ? ' · مؤرشف' : ''}</div><div id="recSync" class="hint">${syncTxt}</div>
    <div class="kv" style="margin-top:10px"><b>الحاوية</b><span dir="ltr" style="text-align:right">${esc(f.container)}</span><b>العربية</b><span>${esc(f.plate)}</span><b>السواق</b><span>${esc(r.driverName)}</span><b>الموبايل</b><span dir="ltr" style="text-align:right">${esc(f.phone)}</span>${f.ref ? `<b>الشحنة/الفاتورة</b><span>${esc(f.ref)}</span>` : ''}${f.destination ? `<b>الجهة</b><span>${esc(f.destination)}</span>` : ''}<b>عدد الورق</b><span>${r.docs.length}</span>${r.by ? `<b>سجّله</b><span>${esc(r.by.label || r.by.username)}</span>` : ''}</div></div>
    <div class="card"><div class="thumbs" id="th"></div></div>
-   <div class="card"><div class="row"><button class="btn" id="bShare">📤 مشاركة PDF</button><button class="btn ol" id="bDl">⬇ تحميل PDF</button></div>
+   <div class="card"><div class="row"><button class="btn" id="bShare">📤 PDF / واتساب</button><button class="btn ol" id="bDl">⬇ تحميل PDF</button></div>
     <div class="row" style="margin-top:8px"><button class="btn gh" id="bSync">☁︎ رفع الآن</button><button class="btn gh" id="bArch">${r.archived ? 'إلغاء الأرشفة' : '🗄 أرشفة'}</button></div></div>`;
   $('#th').innerHTML = r.docs.map(d => `<img data-k="${r.id}/${d.file}" alt="">`).join('') + (r.selfie ? `<img data-k="${r.id}/${r.selfie.file}" alt="">` : ''); $('#th').querySelectorAll('img').forEach(async im => im.src = await blobUrl(im.dataset.k));
   $('#bShare').onclick = () => sharePdf(r); $('#bDl').onclick = () => downloadPdf(r);
@@ -449,7 +449,7 @@ async function renderPages(r) {
 }
 async function buildPdf(r) { const pages = await renderPages(r), jp = [];
   for (const c of pages) { const b = await HOImg.toBlob(c, 0.82); jp.push({ bytes: new Uint8Array(await b.arrayBuffer()), w: c.width, h: c.height }); }
-  return { blob: makePdf(jp, 'إيصال تسليم أصول ورق ' + r.serial), pages, name: 'ايصال_تسليم_' + String(r.serial).replace(/[^\w-]/g, '_') + '.pdf' }; }
+  return { blob: makePdf(jp, 'إيصال تسليم أصول ورق ' + r.serial), pages, name: 'إيصال تسليم أصول ورق — ' + String(r.serial).replace(/[^\w-]/g, '_') + '.pdf' }; }
 function pdfStr(s) { let h = 'FEFF'; for (const ch of String(s)) { const c = ch.codePointAt(0); if (c > 0xffff) { const v = c - 0x10000; h += (0xd800 + (v >> 10)).toString(16).padStart(4, '0') + (0xdc00 + (v & 1023)).toString(16).padStart(4, '0'); } else h += c.toString(16).padStart(4, '0'); } return '<' + h.toUpperCase() + '>'; }
 function makePdf(imgs, title) { const enc = new TextEncoder(), parts = [], off = []; let len = 0; const push = b => { if (typeof b === 'string') b = enc.encode(b); parts.push(b); len += b.length; };
   const PW = 595.28, PHt = 841.89, info = 3 + imgs.length * 3, cnt = info; push('%PDF-1.4\n%\u00ff\u00ff\n');
@@ -465,10 +465,9 @@ function makePdf(imgs, title) { const enc = new TextEncoder(), parts = [], off =
   push(xr + `trailer\n<< /Size ${cnt + 1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`); return new Blob(parts, { type: 'application/pdf' }); }
 function dl(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
 async function downloadPdf(r) { toast('⏳ بجهّز الـ PDF…'); try { const o = await pdfFor(r); dl(o.blob, o.name); } catch (e) { toast('تعذر تجهيز الـ PDF: ' + (e.message || e)); } }
+/* PDF / واتساب: in-app preview; «إرسال واتساب» inside it shares the file — nothing is downloaded automatically. */
 async function sharePdf(r) { let o; toast('⏳ بجهّز الـ PDF…'); try { o = await pdfFor(r); } catch (e) { return toast('تعذر تجهيز الـ PDF'); }
-  const file = new File([o.blob], o.name, { type: 'application/pdf' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'إيصال ' + r.serial }); return; } catch (e) { if (e.name === 'AbortError') return; if (e.name === 'NotAllowedError') return toast('الـ PDF جاهز — دوس «مشاركة PDF» تاني', 4000); } }
-  dl(o.blob, o.name); }
+  PdfShare.open(o.blob, o.name, { title: 'إيصال ' + r.serial, heading: 'معاينة الإيصال' }); }
 window.HO = { checkName, pdfFor, renderPages, getRec, allRecs, syncAll, showRecord };
 
 /* ---------- تشغيل ---------- */
