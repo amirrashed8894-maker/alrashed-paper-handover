@@ -211,7 +211,7 @@ const EXTRA = {
   load:   {fields:[['tStart','وقت بدء التحميل','time'],['tEnd','وقت انتهاء التحميل','time']]},
   pallets:{pallets:true},
   logger: {fields:[['logger','رقم جهاز التبريد *','text'],['loggerPal','رقم الباليت اللي فيها الجهاز (اختياري)','text']],photos:[['logger','الجهاز داخل الكرتونة'],['label','ورقة «هنا جهاز تبريد» ملصوقة']],hint:true},
-  lot:    {lots:true,photos:[['last','آخر بالتات (اللوط والاستيكرات)'],['samples','عينات اللوط للسائق'],['mahdar','محضر الباليتات (اختياري)'],['stp1','ختم الباليت قبل الأخير'],['stp2','ختم الباليت الأخير']]},
+  lot:    {lots:true,photos:[['last','آخر بالتات (اللوط والاستيكرات)'],['samples','عينات اللوط للسائق'],['stp1','ختم الباليت قبل الأخير'],['stp2','ختم الباليت الأخير']]},
   seal:   {photos:[['seal','القفلة مع رقم الحاوية']]},
   driver: {driver:true}
 };
@@ -409,7 +409,7 @@ function row(k,v){return `<tr><th>${k}</th><td>${v}</td></tr>`}
 function report(miss){
   const f=S.f,L=lots(),T=temps(),lim=tempLimit();
   const ph=(k,cap)=>S.ph[k]?`<figure><img src="${S.ph[k]}"><figcaption>${cap}</figcaption></figure>`:'';
-  const caps={unit:'جهاز ضبط الحاوية (فاضية)',out:'الخارج — الجنب اليمين',out2:'الخارج — الجنب الشمال',out3:'الخارج — الباب مقفول',in:'الداخل يمين — 1',in4:'الداخل يمين — 2',in3:'الداخل الصدر',in2:'الداخل شمال — 1',in5:'الداخل شمال — 2',drain:'فتحات الصرف مفتوحة',logger:'جهاز التبريد داخل الكرتونة',label:'ورقة «هنا جهاز تبريد»',last:'آخر البالتات واللوطات',samples:'عينات اللوط',seal:'القفلة مع رقم الحاوية',mahdar:'محضر الباليتات',stp1:'ختم الباليت قبل الأخير',stp2:'ختم الباليت الأخير'};
+  const caps={unit:'جهاز ضبط الحاوية (فاضية)',out:'الخارج — الجنب اليمين',out2:'الخارج — الجنب الشمال',out3:'الخارج — الباب مقفول',in:'الداخل يمين — 1',in4:'الداخل يمين — 2',in3:'الداخل الصدر',in2:'الداخل شمال — 1',in5:'الداخل شمال — 2',drain:'فتحات الصرف مفتوحة',logger:'جهاز التبريد داخل الكرتونة',label:'ورقة «هنا جهاز تبريد»',last:'آخر البالتات واللوطات',samples:'عينات اللوط',seal:'القفلة مع رقم الحاوية',stp1:'ختم الباليت قبل الأخير',stp2:'ختم الباليت الأخير'};
   const hd=(t)=>`<div class="hd"><h2>${t}</h2><div>حاوية: <b class="ltr">${esc((f.cont||'').toUpperCase())}</b> · ${esc(f.date||'')}</div></div>`;
   const top=`<div class="noprint"><button class="btn" id="pdfBtn" onclick="savePdf()">حفظ / مشاركة PDF</button><button class="btn" onclick="closeRep()">رجوع</button></div><div id="pdfMsg" class="noprint" style="display:none;background:#fff;color:var(--ink);font-size:13px"></div>`;
   const B='<!--B-->',P='<!--P-->';
