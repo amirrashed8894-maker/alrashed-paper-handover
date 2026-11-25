@@ -224,6 +224,7 @@ const REQ_FIELDS = {logger:['logger'],drain:['whatsCont','contActual'],lot:['lot
 let S = blank();
 function blank(){return {id:Date.now(),prod:'',f:{date:new Date().toISOString().slice(0,10)},c:{},ph:{},sig:'',done:false}}
 const $=s=>document.querySelector(s);
+function cl(v,n){v=String(v??'').replace(/\s+/g,' ').trim();return v.length>n?v.slice(0,n)+'…':v}
 function esc(t){return String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
 function build(){
@@ -244,9 +245,9 @@ function build(){
       <label class="f"><span>رقم الحاوية الفعلي المكتوب على الحاوية *</span><input type="text" class="ltr" data-k="contActual" placeholder="اكتبه من على الحاوية حرف حرف" style="text-transform:uppercase" autocomplete="off"></label><div id="cmsg"></div>`;
     }
     if(ex.lots){
-      h+=`<label class="f"><span>أرقام اللوطات في الحاوية (افصل بفاصلة) *</span><input type="text" class="ltr" data-k="lots"></label>
-      <div class="f"><span>لوط كل باليت من آخر 4 بالتات عند الباب (الباليت = لوط واحد)</span><div class="g2">
-      ${[1,2,3,4].map(n=>`<input type="text" class="ltr" data-k="l${n}" placeholder="بالتة ${n}">`).join('')}</div></div>
+      h+=`<label class="f"><span>أرقام اللوطات في الحاوية * — لو أكتر من لوط افصل بينهم بفاصلة</span><input type="text" class="ltr" data-k="lots" placeholder="مثال: L2511 أو L2511, L2512" maxlength="80"></label>
+      <div class="f"><span>آخر 4 بالتات عند الباب — رقم الباليت ولوطها (الباليت = لوط واحد)</span>
+      ${[1,2,3,4].map(n=>`<div class="g2" style="margin-bottom:6px"><input type="text" class="ltr" data-k="p${n}" placeholder="رقم الباليت ${n}" maxlength="20"><select data-k="l${n}" class="lotsel"></select></div>`).join('')}</div>
       <label class="f"><span>عدد كراتين العينة المسلَّمة للسائق</span><input type="number" inputmode="numeric" data-k="samples"></label><div id="lmsg"></div>
       <div class="f" style="margin-top:12px"><span><b>مطابقة ختم الباليتات الخشب (IPPC / HT)</b></span></div>
       <label class="f"><span>رقم الختم في محضر الباليتات *</span><input type="text" class="ltr" data-k="stampDoc" placeholder="EG-003" style="text-transform:uppercase"></label>
@@ -321,7 +322,8 @@ function clearSig(){const c=$('#sig');sctx.clearRect(0,0,c.width,c.height);S.sig
 
 // ---------- logic ----------
 function pallets(){return (S.f.palList||'').split(/[\n,،]+/).map(x=>x.trim()).filter(Boolean)}
-function lots(){return (S.f.lots||'').split(/[,،\s]+/).map(x=>x.trim()).filter(Boolean)}
+function lots(){return (S.f.lots||'').split(/[,،;؛\n]+/).map(x=>x.trim()).filter(Boolean)}
+function refreshLotSel(){const L=lots();document.querySelectorAll('select.lotsel').forEach(sel=>{const v=S.f[sel.dataset.k]||'';const opts=['<option value="">اللوط…</option>'].concat(L.map(l=>`<option${l===v?' selected':''}>${esc(l)}</option>`));if(v&&!L.includes(v))opts.push(`<option selected>${esc(v)}</option>`);const h=opts.join('');if(sel._h!==h){sel.innerHTML=h;sel._h=h}sel.value=v})}
 function num(v){if(v===undefined||v===null)return NaN;v=String(v).trim().replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[٫,]/g,'.').replace(/[−–ـ]/g,'-');return v===''?NaN:Number(v)}
 function temps(){const v=num(S.f.t0);return isNaN(v)?[]:[v]}
 function tempLimit(){ if(S.prod==='frozen') return -18; const sp=num(S.f.setp); return isNaN(sp)?null:sp+2 }
@@ -358,6 +360,7 @@ function infoIssues(){const i=[];if(!S.prod)i.push('اختيار الصنف');if
 function changed(){
   document.querySelectorAll('#prod .chip').forEach(c=>c.classList.toggle('on',c.dataset.v===S.prod));
   document.querySelectorAll('[data-c]').forEach(el=>{const [id,j]=el.dataset.c.split('.');const a=autoOk(id,+j);if(a!==null){el.checked=a;S.c[el.dataset.c]=a}});
+  refreshLotSel();
   let total=STEPS.length+1,ok=0;
   const ii=infoIssues();$('#sec-info').classList.toggle('done',!ii.length);$('#st-info').textContent=ii.length?'ناقص':'✓';if(!ii.length)ok++;
   let before8=true;
@@ -431,30 +434,30 @@ function report(miss){
   let h='';
   h+=hd('تقرير تحميل حاوية');
   const r2=(a,b,c,d)=>`<tr><th>${a}</th><td>${b}</td><th>${c}</th><td>${d}</td></tr>`;
-  h+=`<table class="t4">${r2('الصنف',prodName(),'العميل',esc(f.client))}${r2('رقم الحجز',`<span class="ltr">${esc(f.booking)}</span>`,'الخط الملاحي',esc(f.line==='أخرى'?f.lineOther:f.line))}
-  ${r2('درجة الحجز',`<span class="ltr">${esc(f.setp)} °C</span>`,'عدد البالتات',esc(f.expPal||'—'))}${r2('وقت التحميل',`${esc(f.tStart)} — ${esc(f.tEnd)}`,'رقم السيارة',esc(f.truck))}
-  ${r2('مهندس التحميل',esc(f.eng),'السائق',esc(f.drvName))}<tr><th>مطابقة الواتساب</th><td colspan="3">${(()=>{const c=contCheck();return `واتساب: <span class="ltr">${esc(c.w||'—')}</span> · الفعلي: <span class="ltr">${esc(c.a||'—')}</span> — `+(c.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>')})()}</td></tr><tr><th>جهاز التبريد</th><td colspan="3">رقم <span class="ltr">${esc(f.logger)}</span>${f.loggerPal?' — الباليت <span class="ltr">'+esc(f.loggerPal)+'</span>':''} (الباليت قبل الأخير، فوق، داخل الكرتونة)</td></tr></table>`;
+  h+=`<table class="t4">${r2('الصنف',prodName(),'العميل',esc(cl(f.client,50)))}${r2('رقم الحجز',`<span class="ltr">${esc(cl(f.booking,50))}</span>`,'الخط الملاحي',esc(cl(f.line==='أخرى'?f.lineOther:f.line,40)))}
+  ${r2('درجة الحجز',`<span class="ltr">${esc(cl(f.setp,50))} °C</span>`,'عدد البالتات',esc(f.expPal||'—'))}${r2('وقت التحميل',`${esc(cl(f.tStart,50))} — ${esc(cl(f.tEnd,50))}`,'رقم السيارة',esc(cl(f.truck,50)))}
+  ${r2('مهندس التحميل',esc(cl(f.eng,50)),'السائق',esc(cl(f.drvName,50)))}<tr><th>مطابقة الواتساب</th><td colspan="3">${(()=>{const c=contCheck();return `واتساب: <span class="ltr">${esc(c.w||'—')}</span> · الفعلي: <span class="ltr">${esc(c.a||'—')}</span> — `+(c.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>')})()}</td></tr><tr><th>جهاز التبريد</th><td colspan="3">رقم <span class="ltr">${esc(cl(f.logger,50))}</span>${f.loggerPal?' — الباليت <span class="ltr">'+esc(cl(f.loggerPal,50))+'</span>':''} (الباليت قبل الأخير، فوق، داخل الكرتونة)</td></tr></table>`;
   h+=B;
   {const cells=STEPS.map((s,i)=>{const x=stepIssues(s);return `<th>${i+1}. ${s.t}</th><td class="stc">${x.length?'<span class="no">ناقص:</span> '+x.map(esc).join(' · '):'<span class="yes">✓ تم</span>'}</td>`});
    let rows='';for(let i=0;i<cells.length;i+=2)rows+=`<tr>${cells[i]}${cells[i+1]||'<th></th><td></td>'}</tr>`;
    h+=`<h4>الخطوات</h4><table class="t4 stp">${rows}</table>`;}
   h+=B;
-  h+=`<div class="two2"><div><h4>حرارة الثمرة (معاينة)</h4><table>${row('القراءة',T.length?`<span class="ltr">${T[0]} °C</span>`:'—')}${row('درجة الحجز',`<span class="ltr">${esc(f.setp)} °C</span>`)}</table></div>`;
-  h+=`<div><h4>اللوطات</h4><table>${row('اللوطات',`<span class="ltr">${esc(L.join(', '))||'—'}</span>`)}${row('آخر 4 بالتات',`<span class="ltr">${[1,2,3,4].map(n=>esc(f['l'+n]||'—')).join(' | ')}</span>`)}${row('عينات للسائق',esc(f.samples||'—')+' كرتونة')}<tr><td colspan="2" style="font-size:11px;color:#555">كل باليت لوط واحد</td></tr>${(()=>{const st=stampCheck();return row('ختم IPPC',`<span class="ltr">${esc((S.f.stampDoc||'—').toUpperCase())}</span> — ${st.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>'}`)})()}</table></div></div>`;
+  h+=`<div class="two2"><div><h4>حرارة الثمرة (معاينة)</h4><table>${row('القراءة',T.length?`<span class="ltr">${T[0]} °C</span>`:'—')}${row('درجة الحجز',`<span class="ltr">${esc(cl(f.setp,50))} °C</span>`)}</table></div>`;
+  h+=`<div><h4>اللوطات</h4><table>${row('اللوطات',`<span class="ltr">${esc(L.join(', '))||'—'}</span>`)}${row('آخر 4 بالتات',[1,2,3,4].map(n=>`<span class="ltr">${esc(cl(f['p'+n],20)||'—')}</span> (${esc(cl(f['l'+n],20)||'—')})`).join(' · '))}${row('عينات للسائق',esc(f.samples||'—')+' كرتونة')}<tr><td colspan="2" style="font-size:11px;color:#555">كل باليت لوط واحد</td></tr>${(()=>{const st=stampCheck();return row('ختم IPPC',`<span class="ltr">${esc((S.f.stampDoc||'—').toUpperCase())}</span> — ${st.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>'}`)})()}</table></div></div>`;
   h+=B+APPR;
   const figs=Object.keys(caps).map(k=>ph(k,caps[k])).filter(Boolean);
   if(figs.length){h+=P+hd('صور التحميل');for(let r=0;r<figs.length;r+=4){h+=(r?B:'')+`<div class="pics p4">${figs.slice(r,r+4).join('')}</div>`}}
   h+=P+`${hd('توقيع السائق باستلام الورق')}
   <p>أقر أنا السائق الموقع أدناه باستلام <b>ورقة سلامة الغذاء</b> الخاصة بالحاوية رقم <b class="ltr">${esc((f.cont||'').toUpperCase())}</b>
   ${L.length?`، وعدد <b>${esc(f.samples||'')}</b> كرتونة عينة (لوط: <span class="ltr">${esc(L.join(', '))}</span>)`:''}.</p>
-  <table>${row('اسم السائق',esc(f.drvName))}${row('رقم التليفون / الرخصة',`<span class="ltr">${esc(f.drvId)}</span>`)}${row('رقم السيارة',esc(f.truck))}${row('التاريخ',esc(f.date))}</table>
+  <table>${row('اسم السائق',esc(cl(f.drvName,50)))}${row('رقم التليفون / الرخصة',`<span class="ltr">${esc(cl(f.drvId,50))}</span>`)}${row('رقم السيارة',esc(cl(f.truck,50)))}${row('التاريخ',esc(f.date))}</table>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
    <div style="border:1px solid var(--line);padding:6px;text-align:center"><div>توقيع السائق</div>${S.sig?`<img src="${S.sig}" style="width:100%;max-height:170px;object-fit:contain">`:'<div class="no" style="padding:40px 0">بدون توقيع</div>'}</div>
    <div style="border:1px solid var(--line);padding:6px;text-align:center"><div>صورة السائق</div>${S.ph.face?`<img src="${S.ph.face}" style="width:100%;max-height:190px;object-fit:contain">`:'<div class="no" style="padding:40px 0">بدون صورة</div>'}</div>
   </div>`;
   const docs=['doc1','doc2','doc3'].filter(k=>S.ph[k]);
   if(docs.length) h+=B+`<h4>صور الورق المسلَّم للسائق</h4><div class="pics">${docs.map((k,i)=>`<figure><img src="${S.ph[k]}"><figcaption>ورق السائق — ${i+1}</figcaption></figure>`).join('')}</div>`;
-  h+=B+`<p style="margin-top:14px">مهندس التحميل: ${esc(f.eng)} &nbsp;&nbsp;&nbsp; التوقيع: ....................</p>`;
+  h+=B+`<p style="margin-top:14px">مهندس التحميل: ${esc(cl(f.eng,50))} &nbsp;&nbsp;&nbsp; التوقيع: ....................</p>`;
   h+=B+APPR;
   REP_HTML=h;
   $('#rep').innerHTML=top+'<div id="pview"></div>';$('#app').style.display='none';$('#rep').style.display='block';scrollTo(0,0);
@@ -540,6 +543,6 @@ async function savePdf(){
 
 function closeRep(){$('#rep').style.display='none';$('#app').style.display='block';document.title='شيك ليست التحميل'}
 
-load();build();fill();(S.open||[]).forEach(id=>{const e=$('#'+id);if(e)e.classList.add('open')});changed();loadMedia();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+load();build();document.querySelectorAll('input[type=text][data-k]:not([maxlength])').forEach(el=>el.maxLength=60);fill();(S.open||[]).forEach(id=>{const e=$('#'+id);if(e)e.classList.add('open')});changed();loadMedia();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 </script>
 </body></html>
