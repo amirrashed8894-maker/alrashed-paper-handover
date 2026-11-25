@@ -100,7 +100,9 @@ canvas.sig{width:100%;height:170px;border:1px solid var(--line);border-radius:8p
 .rp .pics img{width:100%;height:135px;object-fit:cover;display:block}
 .rp table.t4 th{width:16%}
 .rp table.stp th{width:30%;font-size:11.5px}.rp table.stp td.stc{width:20%;font-size:11.5px}
-.rp .pics.p4{grid-template-columns:1fr 1fr 1fr 1fr}.pg794 .rp .pics.p4 img{height:118px}
+.rp .pics.p4{grid-template-columns:1fr 1fr 1fr 1fr}.pg794 .rp .pics.p3 img{height:178px}
+.papnote{border:1px solid var(--line);background:#f6f7f9;padding:6px 10px;border-radius:6px;margin:6px 0}
+.exrow{border-top:1px dashed var(--line);padding-top:6px;margin-top:6px}.exrow input{margin:4px 0}.exrow .slot{width:100%}.pg794 .rp .pics.p4 img{height:118px}
 .pg794 .rp td,.pg794 .rp th{padding:3px 6px}
 .pg794 .rp h4{margin:9px 0 4px}
 .rp figcaption{font-size:10.5px;text-align:center}
@@ -216,8 +218,9 @@ const EXTRA = {
   driver: {driver:true}
 };
 // علامات بتتحط تلقائي لما الصور المطلوبة تتاخد
-const AUTO = {photos:{0:['unit'],1:['out','out2','out3'],2:['in','in4','in3','in2','in5']},drain:{1:['drain'],2:['__cont']},logger:{3:['logger','label']},lot:{1:['last'],3:['samples'],5:['stp1','stp2']},seal:{0:['seal']},driver:{0:['face','__sig'],2:['doc1']}};
-function autoOk(id,j){const a=(AUTO[id]||{})[j];return a?a.every(k=>k==='__sig'?!!S.sig:k==='__cont'?contCheck().ok:!!S.ph[k]):null}
+const AUTO = {photos:{0:['unit'],1:['out','out2','out3'],2:['in','in4','in3','in2','in5']},drain:{1:['drain'],2:['__cont']},logger:{3:['logger','label']},lot:{1:['last'],3:['samples'],5:['stp1','stp2']},seal:{0:['seal']},driver:{0:['__face','__sig'],2:['__docs']}};
+function other(){return S.f.papersWith==='other'}
+function autoOk(id,j){const a=(AUTO[id]||{})[j];return a?a.every(k=>k==='__sig'?!!S.sig:k==='__cont'?contCheck().ok:k==='__face'?(!!S.ph.face||other()):k==='__docs'?(other()?!!(S.f.papersDriver||'').trim():!!S.ph.doc1):!!S.ph[k]):null}
 const OPT = new Set(['mahdar']); // صور اختيارية
 const REQ_FIELDS = {logger:['logger'],drain:['whatsCont','contActual'],lot:['lots','stampDoc','stamp1','stamp2'],driver:['drvName']};
 
@@ -255,8 +258,12 @@ function build(){
       <label class="f"><span>ختم الباليت الأخير *</span><input type="text" class="ltr" data-k="stamp2" placeholder="EG-003" style="text-transform:uppercase"></label></div><div id="smsg"></div>`;
     }
     if(ex.photos) h+=photoSlots(ex.photos);
+    if(s.id==='photos') h+=`<div class="f" style="margin-top:12px"><span><b>صور إضافية — كسور أو تلفيات واضحة في الحاوية (اختياري)</b></span></div><div id="extras"></div><button class="btn w" type="button" onclick="addExtra()">+ إضافة صورة تلفيات</button>`;
     if(ex.driver){
-      h+=`<label class="f"><span>اسم السائق *</span><input type="text" data-k="drvName"></label>
+      h+=`<div class="f"><span>ورق الحاوية (سلامة الغذاء) مع مين؟</span><div class="chips" id="papw"><div class="chip" data-v="same">مع السائق ده</div><div class="chip" data-v="other">مع سائق تاني</div></div></div>
+      <div id="papOther" style="display:none"><label class="f"><span>اسم السائق اللي معاه الورق *</span><input type="text" data-k="papersDriver" placeholder="مثال: أسامة"></label>
+      <label class="f"><span>رقم حاويته (اختياري)</span><input type="text" class="ltr" data-k="papersCont" style="text-transform:uppercase"></label></div>
+      <label class="f"><span>اسم السائق *</span><input type="text" data-k="drvName"></label>
       <label class="f"><span>رقم تليفون / رخصة السائق</span><input type="text" class="ltr" data-k="drvId"></label>
       <div class="f"><span>توقيع السائق بالاستلام *</span><canvas class="sig" id="sig"></canvas>
       <button class="btn" type="button" onclick="clearSig()" style="margin-top:6px">مسح التوقيع</button></div>`+photoSlots([['face','صورة وجه السائق مع الورقة *']])+`<div class="f" style="margin-top:10px"><span>صور الورق اللي اتسلّم للسائق (سلامة الغذاء وأي ورق تاني)</span></div>`+photoSlots([['doc1','ورق السائق — 1 *'],['doc2','ورق السائق — 2 (اختياري)'],['doc3','ورق السائق — 3 (اختياري)']]);
@@ -284,6 +291,7 @@ document.addEventListener('change',e=>{
     pst(k,'⏳ جاري حفظ الصورة…');
     shrink(f).then(d=>{S.ph[k]=d;pst(k,'');renderPh();changed();phPut(k,d)}).catch(err=>{pst(k,'⚠ الصورة ما اتقريتش — صوّر تاني');showErr('photo '+k+': '+(err&&err.message||err))})}
 });
+document.addEventListener('click',e=>{const c=e.target.closest('#papw .chip');if(!c)return;S.f.papersWith=c.dataset.v;changed()});
 $('#prod').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;S.prod=c.dataset.v;changed()});
 
 // الصورة: objectURL (أخف على ذاكرة الآيفون من FileReader) ← canvas مصغّر ← JPEG
@@ -302,6 +310,11 @@ function renderPh(){
     sl.querySelector('.pv').innerHTML=d?`<img src="${d}"><button class="x" type="button" onclick="event.stopPropagation();delPh('${k}')">×</button>`
       :(GUIDE[k]?`<div class="gd" data-pick="${k}"><img src="${GUIDE[k]}" alt=""><span class="gtag">مثال — صوّر زي كده</span></div>`:'')});
 }
+function renderExtras(){const box=$('#extras');if(!box)return;S.extra=S.extra||[];
+  box.innerHTML=S.extra.map((x,i)=>`<div class="exrow">${photoSlots([[x.k,'تلفيات — '+(i+1)]])}<input type="text" data-xn="${i}" maxlength="60" placeholder="وصف (مثال: كسر في الجنب الشمال)" value="${esc(x.n||'')}"><button class="btn" type="button" onclick="delExtra(${i})">حذف</button></div>`).join('');renderPh()}
+function addExtra(){S.extra=S.extra||[];let n=1;while(S.extra.some(x=>x.k==='x'+n))n++;S.extra.push({k:'x'+n,n:''});renderExtras();save()}
+function delExtra(i){const x=S.extra[i];if(x){delete S.ph[x.k];phPut(x.k,null)}S.extra.splice(i,1);renderExtras();changed()}
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.xn!==undefined){S.extra[+t.dataset.xn].n=t.value;save()}});
 function delPh(k){delete S.ph[k];phPut(k,null);renderPh();changed()}
 
 // ---------- signature ----------
@@ -336,7 +349,7 @@ function stepIssues(s){
   (REQ_FIELDS[s.id]||[]).forEach(k=>{if(!(S.f[k]||'').trim()) iss.push('بيان ناقص')});
   if(ex.temps){const t=temps();const lim=tempLimit();
     if(!t.length) iss.push('تسجيل حرارة الثمرة');}
-  if(ex.driver){ if(!S.sig) iss.push('توقيع السائق'); if(!S.ph.face) iss.push('صورة وجه السائق'); if(!S.ph.doc1) iss.push('صورة ورق السائق'); }
+  if(ex.driver){ if(!S.sig) iss.push('توقيع السائق'); if(other()){ if(!(S.f.papersDriver||'').trim()) iss.push('اسم السائق اللي معاه الورق') } else { if(!S.ph.face) iss.push('صورة وجه السائق'); if(!S.ph.doc1) iss.push('صورة ورق السائق') } }
   if(s.id==='drain'){const c=contCheck();c.bad.forEach(x=>iss.push(x))}
   if(s.id==='lot'){const L=lots();
     if(L.length>1){const last=[1,2,3,4].map(n=>(S.f['l'+n]||'').trim());const miss=L.filter(l=>!last.includes(l));if(miss.length) iss.push('لوط غير موجود في آخر 4 بالتات: '+miss.join(', '))}
@@ -361,6 +374,7 @@ function changed(){
   document.querySelectorAll('#prod .chip').forEach(c=>c.classList.toggle('on',c.dataset.v===S.prod));
   document.querySelectorAll('[data-c]').forEach(el=>{const [id,j]=el.dataset.c.split('.');const a=autoOk(id,+j);if(a!==null){el.checked=a;S.c[el.dataset.c]=a}});
   refreshLotSel();
+  document.querySelectorAll('#papw .chip').forEach(c=>c.classList.toggle('on',(S.f.papersWith||'same')===c.dataset.v));{const po=$('#papOther');if(po)po.style.display=other()?'block':'none'}
   let total=STEPS.length+1,ok=0;
   const ii=infoIssues();$('#sec-info').classList.toggle('done',!ii.length);$('#st-info').textContent=ii.length?'ناقص':'✓';if(!ii.length)ok++;
   let before8=true;
@@ -408,7 +422,7 @@ function hist(){try{return JSON.parse(localStorage.getItem(HK)||'[]')}catch(e){r
 function showHist(){const h=hist();$('#hist').innerHTML=h.length?h.slice().reverse().map(x=>`<div class="it"><span class="ltr">${esc(x.cont)}</span><span>${esc(x.prod)}</span><span>${esc(x.date)}</span><span>${x.pal} بالتة</span></div>`).join(''):'<div class="msg warn">لا توجد حاويات سابقة على هذا الجهاز.</div>'}
 
 // ---------- report ----------
-function missingPhotos(){const m=[];STEPS.forEach((s,i)=>{const ex=EXTRA[s.id]||{};(ex.photos||[]).forEach(([k,l])=>{if(!S.ph[k]&&!OPT.has(k))m.push((i+1)+'. '+l)});if(ex.driver&&!S.ph.doc1)m.push((i+1)+'. صورة ورق السائق');if(ex.driver&&!S.ph.face)m.push((i+1)+'. صورة وجه السائق')});return m}
+function missingPhotos(){const m=[];STEPS.forEach((s,i)=>{const ex=EXTRA[s.id]||{};(ex.photos||[]).forEach(([k,l])=>{if(!S.ph[k]&&!OPT.has(k))m.push((i+1)+'. '+l)});if(ex.driver&&!other()&&!S.ph.doc1)m.push((i+1)+'. صورة ورق السائق');if(ex.driver&&!other()&&!S.ph.face)m.push((i+1)+'. صورة وجه السائق')});return m}
 async function finish(){
   const mp=missingPhotos();
   if(mp.length){$('#missing').innerHTML='<div class="msg bad"><b>لا يمكن إصدار التقرير — صور ناقصة ('+mp.length+'):</b><br>• '+mp.map(esc).join('<br>• ')+'</div>';$('#missing').scrollIntoView({block:'center'});return}
@@ -436,7 +450,7 @@ function report(miss){
   const r2=(a,b,c,d)=>`<tr><th>${a}</th><td>${b}</td><th>${c}</th><td>${d}</td></tr>`;
   h+=`<table class="t4">${r2('الصنف',prodName(),'العميل',esc(cl(f.client,50)))}${r2('رقم الحجز',`<span class="ltr">${esc(cl(f.booking,50))}</span>`,'الخط الملاحي',esc(cl(f.line==='أخرى'?f.lineOther:f.line,40)))}
   ${r2('درجة الحجز',`<span class="ltr">${esc(cl(f.setp,50))} °C</span>`,'عدد البالتات',esc(f.expPal||'—'))}${r2('وقت التحميل',`${esc(cl(f.tStart,50))} — ${esc(cl(f.tEnd,50))}`,'رقم السيارة',esc(cl(f.truck,50)))}
-  ${r2('مهندس التحميل',esc(cl(f.eng,50)),'السائق',esc(cl(f.drvName,50)))}<tr><th>مطابقة الواتساب</th><td colspan="3">${(()=>{const c=contCheck();return `واتساب: <span class="ltr">${esc(c.w||'—')}</span> · الفعلي: <span class="ltr">${esc(c.a||'—')}</span> — `+(c.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>')})()}</td></tr><tr><th>جهاز التبريد</th><td colspan="3">رقم <span class="ltr">${esc(cl(f.logger,50))}</span>${f.loggerPal?' — الباليت <span class="ltr">'+esc(cl(f.loggerPal,50))+'</span>':''} (الباليت قبل الأخير، فوق، داخل الكرتونة)</td></tr></table>`;
+  ${r2('مهندس التحميل',esc(cl(f.eng,50)),'السائق',esc(cl(f.drvName,50)))}<tr><th>مطابقة الواتساب</th><td colspan="3">${(()=>{const c=contCheck();return `واتساب: <span class="ltr">${esc(c.w||'—')}</span> · الفعلي: <span class="ltr">${esc(c.a||'—')}</span> — `+(c.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>')})()}</td></tr>${other()?`<tr><th>ورق الحاوية</th><td colspan="3">مع السائق / ${esc(cl(f.papersDriver,40))}${f.papersCont?` — حاوية <span class="ltr">${esc(cl(f.papersCont,15).toUpperCase())}</span>`:''}</td></tr>`:''}<tr><th>جهاز التبريد</th><td colspan="3">رقم <span class="ltr">${esc(cl(f.logger,50))}</span>${f.loggerPal?' — الباليت <span class="ltr">'+esc(cl(f.loggerPal,50))+'</span>':''} (الباليت قبل الأخير، فوق، داخل الكرتونة)</td></tr></table>`;
   h+=B;
   {const cells=STEPS.map((s,i)=>{const x=stepIssues(s);return `<th>${i+1}. ${s.t}</th><td class="stc">${x.length?'<span class="no">ناقص:</span> '+x.map(esc).join(' · '):'<span class="yes">✓ تم</span>'}</td>`});
    let rows='';for(let i=0;i<cells.length;i+=2)rows+=`<tr>${cells[i]}${cells[i+1]||'<th></th><td></td>'}</tr>`;
@@ -445,15 +459,17 @@ function report(miss){
   h+=`<div class="two2"><div><h4>حرارة الثمرة (معاينة)</h4><table>${row('القراءة',T.length?`<span class="ltr">${T[0]} °C</span>`:'—')}${row('درجة الحجز',`<span class="ltr">${esc(cl(f.setp,50))} °C</span>`)}</table></div>`;
   h+=`<div><h4>اللوطات</h4><table>${row('اللوطات',`<span class="ltr">${esc(L.join(', '))||'—'}</span>`)}${row('آخر 4 بالتات',[1,2,3,4].map(n=>`<span class="ltr">${esc(cl(f['p'+n],20)||'—')}</span> (${esc(cl(f['l'+n],20)||'—')})`).join(' · '))}${row('عينات للسائق',esc(f.samples||'—')+' كرتونة')}<tr><td colspan="2" style="font-size:11px;color:#555">كل باليت لوط واحد</td></tr>${(()=>{const st=stampCheck();return row('ختم IPPC',`<span class="ltr">${esc((S.f.stampDoc||'—').toUpperCase())}</span> — ${st.ok?'<span class="yes">مطابق ✓</span>':'<span class="no">غير مطابق</span>'}`)})()}</table></div></div>`;
   h+=B+APPR;
-  const figs=Object.keys(caps).map(k=>ph(k,caps[k])).filter(Boolean);
-  if(figs.length){h+=P+hd('صور التحميل');for(let r=0;r<figs.length;r+=4){h+=(r?B:'')+`<div class="pics p4">${figs.slice(r,r+4).join('')}</div>`}}
+  const figs=Object.keys(caps).map(k=>ph(k,caps[k])).filter(Boolean).concat((S.extra||[]).filter(x=>S.ph[x.k]).map((x,i)=>ph(x.k,'تلفيات'+(x.n?': '+esc(cl(x.n,40)):' — '+(i+1)))));
+  if(figs.length){h+=P+hd('صور التحميل');for(let r=0;r<figs.length;r+=3){h+=(r?B:'')+`<div class="pics p3">${figs.slice(r,r+3).join('')}</div>`}}
   h+=P+`${hd('توقيع السائق باستلام الورق')}
-  <p>أقر أنا السائق الموقع أدناه باستلام <b>ورقة سلامة الغذاء</b> الخاصة بالحاوية رقم <b class="ltr">${esc((f.cont||'').toUpperCase())}</b>
-  ${L.length?`، وعدد <b>${esc(f.samples||'')}</b> كرتونة عينة (لوط: <span class="ltr">${esc(L.join(', '))}</span>)`:''}.</p>
+  ${other()?`<p>أقر أنا السائق الموقع أدناه باستلام الحاوية رقم <b class="ltr">${esc((f.cont||'').toUpperCase())}</b>${L.length?`، وعدد <b>${esc(f.samples||'')}</b> كرتونة عينة (لوط: <span class="ltr">${esc(L.join(', '))}</span>)`:''}.</p>
+  <div class="papnote">ورق الحاوية (ورقة سلامة الغذاء) <b>راح مع السائق / ${esc(cl(f.papersDriver,40))}</b>${f.papersCont?` — حاوية <span class="ltr">${esc(cl(f.papersCont,15).toUpperCase())}</span>`:''}</div>`
+  :`<p>أقر أنا السائق الموقع أدناه باستلام <b>ورقة سلامة الغذاء</b> الخاصة بالحاوية رقم <b class="ltr">${esc((f.cont||'').toUpperCase())}</b>
+  ${L.length?`، وعدد <b>${esc(f.samples||'')}</b> كرتونة عينة (لوط: <span class="ltr">${esc(L.join(', '))}</span>)`:''}.</p>`}
   <table>${row('اسم السائق',esc(cl(f.drvName,50)))}${row('رقم التليفون / الرخصة',`<span class="ltr">${esc(cl(f.drvId,50))}</span>`)}${row('رقم السيارة',esc(cl(f.truck,50)))}${row('التاريخ',esc(f.date))}</table>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
    <div style="border:1px solid var(--line);padding:6px;text-align:center"><div>توقيع السائق</div>${S.sig?`<img src="${S.sig}" style="width:100%;max-height:170px;object-fit:contain">`:'<div class="no" style="padding:40px 0">بدون توقيع</div>'}</div>
-   <div style="border:1px solid var(--line);padding:6px;text-align:center"><div>صورة السائق</div>${S.ph.face?`<img src="${S.ph.face}" style="width:100%;max-height:190px;object-fit:contain">`:'<div class="no" style="padding:40px 0">بدون صورة</div>'}</div>
+   <div style="border:1px solid var(--line);padding:6px;text-align:center"><div>صورة السائق</div>${S.ph.face?`<img src="${S.ph.face}" style="width:100%;max-height:190px;object-fit:contain">`:(other()?'<div style="color:#777;padding:40px 0">غير مطلوبة — الورق مع سائق تاني</div>':'<div class="no" style="padding:40px 0">بدون صورة</div>')}</div>
   </div>`;
   const docs=['doc1','doc2','doc3'].filter(k=>S.ph[k]);
   if(docs.length) h+=B+`<h4>صور الورق المسلَّم للسائق</h4><div class="pics">${docs.map((k,i)=>`<figure><img src="${S.ph[k]}"><figcaption>ورق السائق — ${i+1}</figcaption></figure>`).join('')}</div>`;
@@ -521,8 +537,8 @@ async function savePdf(){
     const pages=buildPages(stage),jp=[];
     for(let i=0;i<pages.length;i++){
       say(`⏳ جاري تجهيز الصفحة ${i+1} من ${pages.length}…`);
-      const c=await html2canvas(pages[i],{scale:2,backgroundColor:'#ffffff',logging:false,width:794,height:1123,windowWidth:794});
-      const b=await toBlob(c,0.85);jp.push({bytes:new Uint8Array(await b.arrayBuffer()),w:c.width,h:c.height});
+      const c=await html2canvas(pages[i],{scale:3,backgroundColor:'#ffffff',logging:false,width:794,height:1123,windowWidth:794});
+      const b=await toBlob(c,0.9);jp.push({bytes:new Uint8Array(await b.arrayBuffer()),w:c.width,h:c.height});
     }
     const name='تقرير تحميل '+((S.f.cont||'').toUpperCase()||'حاوية')+'.pdf';
     const blob=makePdf(jp,name.replace('.pdf',''));
@@ -543,6 +559,6 @@ async function savePdf(){
 
 function closeRep(){$('#rep').style.display='none';$('#app').style.display='block';document.title='شيك ليست التحميل'}
 
-load();build();document.querySelectorAll('input[type=text][data-k]:not([maxlength])').forEach(el=>el.maxLength=60);fill();(S.open||[]).forEach(id=>{const e=$('#'+id);if(e)e.classList.add('open')});changed();loadMedia();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+load();build();renderExtras();document.querySelectorAll('input[type=text][data-k]:not([maxlength])').forEach(el=>el.maxLength=60);fill();(S.open||[]).forEach(id=>{const e=$('#'+id);if(e)e.classList.add('open')});changed();loadMedia();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 </script>
 </body></html>
